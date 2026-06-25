@@ -26,7 +26,7 @@ The framework is used to automate Android application testing using BDD scenario
 - Cucumber Java
 - JUnit 4
 - Selenium WebDriver
-- Appium Java ClientMake sure:
+- Appium Java Client
 
  ## How to Run Test
  Open the runner file:src/test/java/runners/TestRunner.java
