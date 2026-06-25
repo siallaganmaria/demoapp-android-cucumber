@@ -5,6 +5,7 @@ import io.appium.java_client.android.AndroidDriver;
 import io.appium.java_client.android.options.UiAutomator2Options;
 import io.cucumber.java.After;
 import io.cucumber.java.Before;
+import io.cucumber.java.Scenario;
 
 import org.openqa.selenium.By;
 import org.openqa.selenium.TimeoutException;
@@ -15,7 +16,12 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Base64;
 import java.util.List;
 
 public class MobileHooks {
@@ -23,7 +29,7 @@ public class MobileHooks {
     public static AndroidDriver driver;
 
     @Before
-    public void setUp() throws MalformedURLException {
+    public void setUp(Scenario scenario) throws MalformedURLException {
         UiAutomator2Options options = new UiAutomator2Options();
 
         options.setPlatformName("Android");
@@ -47,6 +53,8 @@ public class MobileHooks {
         driver.manage().timeouts().implicitlyWait(Duration.ofSeconds(1));
 
         handleAndroidCompatibilityPopup();
+
+        startTestRecording(scenario);
     }
 
     private void handleAndroidCompatibilityPopup() {
@@ -81,9 +89,50 @@ public class MobileHooks {
         }
     }
 
+    private void startTestRecording(Scenario scenario) {
+        try {
+            driver.startRecordingScreen();
+            System.out.println("Start recording test: " + scenario.getName());
+        } catch (Exception e) {
+            System.out.println("Failed to start screen recording: " + e.getMessage());
+        }
+    }
+
+    private void stopTestRecording(Scenario scenario) {
+        try {
+            String videoBase64 = driver.stopRecordingScreen();
+
+            if (videoBase64 == null || videoBase64.isEmpty()) {
+                System.out.println("Recording is empty. Video file was not created.");
+                return;
+            }
+
+            String scenarioName = scenario.getName()
+                    .replaceAll("[^a-zA-Z0-9]", "_")
+                    .toLowerCase();
+
+            String timestamp = LocalDateTime.now()
+                    .format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+
+            Path recordingDir = Path.of("evidence", "recordings");
+            Files.createDirectories(recordingDir);
+
+            Path videoPath = recordingDir.resolve(scenarioName + "_" + timestamp + ".mp4");
+
+            byte[] videoBytes = Base64.getDecoder().decode(videoBase64);
+            Files.write(videoPath, videoBytes);
+
+            System.out.println("Recording saved to: " + videoPath.toAbsolutePath());
+
+        } catch (Exception e) {
+            System.out.println("Failed to stop screen recording: " + e.getMessage());
+        }
+    }
+
     @After
-    public void tearDown() {
+    public void tearDown(Scenario scenario) {
         if (driver != null) {
+            stopTestRecording(scenario);
             driver.quit();
         }
     }
