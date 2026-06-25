@@ -33,7 +33,7 @@ public class MobileHooks {
         options.setApp("C:/Users/1368/Downloads/Stock Bibit/mda-2.2.0-25.apk");
 
         options.setAutoGrantPermissions(true);
-        options.setNoReset(true);
+        options.setNoReset(false);
         options.setFullReset(false);
 
         options.setCapability("appium:adbExecTimeout", 60000);

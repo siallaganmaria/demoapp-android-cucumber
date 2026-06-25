@@ -17,6 +17,9 @@ public class LoginPage {
     private final AndroidDriver driver;
     private final WebDriverWait wait;
 
+    private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(15);
+    private static final Duration SHORT_TIMEOUT = Duration.ofSeconds(3);
+
     // Android system popup
     private final By androidDontShowAgainButton = By.id("android:id/button1");
 
@@ -25,7 +28,12 @@ public class LoginPage {
 
     // Menu
     private final By menuButton = By.id("com.saucelabs.mydemoapp.android:id/menuIV");
-    private final By loginMenuItem = AppiumBy.accessibilityId("Login Menu Item");
+
+    private final List<By> loginMenuItemLocators = Arrays.asList(
+            AppiumBy.accessibilityId("Login Menu Item"),
+            AppiumBy.androidUIAutomator("new UiSelector().textContains(\"Login\")"),
+            AppiumBy.androidUIAutomator("new UiSelector().textContains(\"Log In\")")
+    );
 
     // Login form
     private final By usernameField = By.id("com.saucelabs.mydemoapp.android:id/nameET");
@@ -42,7 +50,6 @@ public class LoginPage {
             By.id("com.saucelabs.mydemoapp.android:id/loginErrorTV"),
             By.id("com.saucelabs.mydemoapp.android:id/nameErrorTV"),
             By.id("com.saucelabs.mydemoapp.android:id/passwordErrorTV"),
-
             AppiumBy.androidUIAutomator("new UiSelector().textContains(\"Provided credentials\")"),
             AppiumBy.androidUIAutomator("new UiSelector().textContains(\"do not match\")"),
             AppiumBy.androidUIAutomator("new UiSelector().textContains(\"Username\")"),
@@ -53,21 +60,30 @@ public class LoginPage {
 
     public LoginPage(AndroidDriver driver) {
         this.driver = driver;
-        this.wait = new WebDriverWait(driver, Duration.ofSeconds(15));
+        this.wait = new WebDriverWait(driver, DEFAULT_TIMEOUT);
     }
 
     public void openLoginPage() {
         dismissAndroidPopupIfPresent();
 
-        waitUntilVisible(productTitle);
-        tap(menuButton);
+        // Case 1: App already opens on Login page
+        if (isLoginPageDisplayedWithShortWait()) {
+            return;
+        }
 
-        waitUntilVisible(loginMenuItem);
-        tap(loginMenuItem);
+        // Case 2: App opens on Home/Product page or another screen where menu exists
+        if (isDisplayedWithShortWait(menuButton)) {
+            tap(menuButton);
+            tapFirstAvailable(loginMenuItemLocators);
+            waitForLoginPageToBeDisplayed();
+            return;
+        }
 
-        waitUntilVisible(usernameField);
-        waitUntilVisible(passwordField);
-        waitUntilVisible(loginButton);
+        // Case 3: App is in an unexpected screen/state
+        throw new TimeoutException(
+                "Unable to open Login page. Menu button and Login form were not found. Current activity: "
+                        + driver.currentActivity()
+        );
     }
 
     public boolean isLoginPageDisplayed() {
@@ -130,15 +146,21 @@ public class LoginPage {
         return false;
     }
 
+    private void waitForLoginPageToBeDisplayed() {
+        waitUntilVisible(usernameField);
+        waitUntilVisible(passwordField);
+        waitUntilVisible(loginButton);
+    }
+
     private void dismissAndroidPopupIfPresent() {
         try {
-            WebDriverWait shortWait = new WebDriverWait(driver, Duration.ofSeconds(3));
+            WebDriverWait shortWait = new WebDriverWait(driver, SHORT_TIMEOUT);
             WebElement button = shortWait.until(
                     ExpectedConditions.elementToBeClickable(androidDontShowAgainButton)
             );
             button.click();
         } catch (TimeoutException ignored) {
-            // Popup does not appear, continue test.
+            // Android popup does not appear, continue test.
         }
     }
 
@@ -154,6 +176,23 @@ public class LoginPage {
         ).click();
     }
 
+    private void tapFirstAvailable(List<By> locators) {
+        for (By locator : locators) {
+            try {
+                WebDriverWait shortWait = new WebDriverWait(driver, SHORT_TIMEOUT);
+                WebElement element = shortWait.until(
+                        ExpectedConditions.elementToBeClickable(locator)
+                );
+                element.click();
+                return;
+            } catch (TimeoutException ignored) {
+                // Try next locator
+            }
+        }
+
+        throw new TimeoutException("Login menu item was not found after opening menu.");
+    }
+
     private boolean isDisplayed(By locator) {
         try {
             return waitUntilVisible(locator).isDisplayed();
@@ -164,12 +203,18 @@ public class LoginPage {
 
     private boolean isDisplayedWithShortWait(By locator) {
         try {
-            WebDriverWait shortWait = new WebDriverWait(driver, Duration.ofSeconds(5));
+            WebDriverWait shortWait = new WebDriverWait(driver, SHORT_TIMEOUT);
             return shortWait.until(
                     ExpectedConditions.visibilityOfElementLocated(locator)
             ).isDisplayed();
         } catch (TimeoutException e) {
             return false;
         }
+    }
+
+    private boolean isLoginPageDisplayedWithShortWait() {
+        return isDisplayedWithShortWait(usernameField)
+                && isDisplayedWithShortWait(passwordField)
+                && isDisplayedWithShortWait(loginButton);
     }
 }
