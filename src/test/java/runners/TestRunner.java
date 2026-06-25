@@ -13,7 +13,7 @@ import java.util.stream.Stream;
 @CucumberOptions(
         features = "src/test/resources/features",
         glue = {"stepdefinitions", "hooks"},
-        tags = "@login",
+        tags = "@buying",
         plugin = {
                 "pretty",
                 "html:target/cucumber-report.html",
